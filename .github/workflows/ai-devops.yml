@@ -1,0 +1,120 @@
+name: AI DevOps Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  NODE_VERSION: '20'
+  REACT_APP_URL: 'http://localhost:3000'
+  MCP_SERVER_URL: 'http://localhost:4000'
+
+jobs:
+  ai-remediation:
+    name: 🤖 AI Detection & Remediation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            react-app/package-lock.json
+            mcp-server/package-lock.json
+            agent/package-lock.json
+
+      - name: 📦 Install Dependencies
+        run: |
+          cd react-app && npm ci && cd ..
+          cd mcp-server && npm install && cd ..
+          cd agent && npm install && cd ..
+
+      - name: 🎭 Install Playwright browsers
+        working-directory: mcp-server
+        run: npx playwright install chromium --with-deps
+
+      - name: 🚀 Start React app (background)
+        working-directory: react-app
+        run: |
+          npm run dev &
+          echo "Waiting for React app..."
+          npx -y wait-on http://localhost:3000 --timeout 30000
+
+      - name: 🚀 Start MCP server (background)
+        working-directory: mcp-server
+        run: |
+          node server.js &
+          echo "Waiting for MCP server..."
+          npx -y wait-on http://localhost:4000/health --timeout 15000
+
+      - name: 🔧 Configure Git User
+        run: |
+          git config --global user.name "AI DevOps Agent"
+          git config --global user.email "ai-devops@github-actions.bot"
+
+      - name: 🤖 Run Full AI Agent (Detect + Fix)
+        working-directory: agent
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MCP_SERVER_URL: ${{ env.MCP_SERVER_URL }}
+        run: node agent.js
+
+      - name: 📤 Push fix branches
+        run: |
+          # Find new ai-fixes branches and push them
+          BRANCHES=$(git branch --list 'ai-fixes/*')
+          if [ -n "$BRANCHES" ]; then
+            for branch in $BRANCHES; do
+              branch=$(echo $branch | xargs)
+              echo "Pushing branch: $branch"
+              # Ignore if not on the new branch
+              git checkout "$branch"
+              git push -u origin "$branch"
+            done
+          else
+            echo "No ai-fixes branches found. No bugs to fix!"
+          fi
+
+      - name: 🔄 Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch all branches recently pushed
+          BRANCH=$(git branch --list 'ai-fixes/*' | head -n 1 | xargs)
+          if [ -n "$BRANCH" ]; then
+            echo "Creating PR for $BRANCH..."
+            
+            TITLE="🤖 AI Bug Fixes ($(date +'%Y-%m-%d'))"
+            BODY="The AI Agent detected and applied bug fixes automatically.\n\nPlease review these changes manually."
+            
+            # Use gh CLI
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(echo -e "$BODY")"
+            
+            echo "## 🎉 Pull Request Created!" >> $GITHUB_STEP_SUMMARY
+            echo "Review and merge the PR to apply the AI fixes." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## 🌟 No Bugs Found!" >> $GITHUB_STEP_SUMMARY
+            echo "The agent ran successfully without generating fixes." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: 📤 Upload reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-reports
+          path: agent/reports/
+          retention-days: 30

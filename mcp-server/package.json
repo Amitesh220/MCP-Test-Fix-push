@@ -1,0 +1,23 @@
+{
+  "name": "mcp-devops-server",
+  "version": "1.0.0",
+  "description": "MCP DevOps server exposing Playwright testing and git-based fix tools",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "playwright": "^1.49.0",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
