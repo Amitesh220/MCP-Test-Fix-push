@@ -73,16 +73,23 @@ jobs:
           MCP_SERVER_URL: ${{ env.MCP_SERVER_URL }}
         run: node agent.js
 
-      - name: 📤 Push fix branches
+      - name: 🔄 Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-          if [[ "$CURRENT_BRANCH" == ai-fixes/* ]]; then
-            echo "Pushing AI fix branch: $CURRENT_BRANCH"
-            git push -u origin "$CURRENT_BRANCH"
+          if [[ "$BRANCH" == ai-fixes/* ]]; then
+            echo "Creating PR for $BRANCH..."
+
+            TITLE="🤖 AI Bug Fixes ($(date +'%Y-%m-%d'))"
+            BODY="The AI Agent detected and applied bug fixes automatically.\n\nPlease review these changes manually."
+
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(echo -e "$BODY")"
+
+            echo "## 🎉 Pull Request Created!" >> $GITHUB_STEP_SUMMARY
           else
-            echo "No AI fix branch detected. Skipping push."
+            echo "## 🌟 No Bugs Found!" >> $GITHUB_STEP_SUMMARY
           fi
       - name: 🔄 Create Pull Request
         env:
