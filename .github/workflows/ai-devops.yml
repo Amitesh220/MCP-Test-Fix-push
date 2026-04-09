@@ -72,22 +72,36 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MCP_SERVER_URL: ${{ env.MCP_SERVER_URL }}
         run: node agent.js
-        
+
+      - name: 📤 Push AI Fix Branch
+        run: |
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          if [[ "$BRANCH" == ai-fixes/* ]]; then
+            echo "Pushing branch: $BRANCH"
+            git push -u origin "$BRANCH"
+          else
+            echo "No AI fix branch detected"
+          fi
+
       - name: 🔄 Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch all branches recently pushed
-          BRANCH=$(git branch --list 'ai-fixes/*' | head -n 1 | xargs)
-          if [ -n "$BRANCH" ]; then
+          BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          if [[ "$BRANCH" == ai-fixes/* ]]; then
             echo "Creating PR for $BRANCH..."
-            
+
             TITLE="🤖 AI Bug Fixes ($(date +'%Y-%m-%d'))"
             BODY="The AI Agent detected and applied bug fixes automatically.\n\nPlease review these changes manually."
-            
-            # Use gh CLI
-            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(echo -e "$BODY")"
-            
+
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "$TITLE" \
+              --body "$(echo -e "$BODY")"
+
             echo "## 🎉 Pull Request Created!" >> $GITHUB_STEP_SUMMARY
             echo "Review and merge the PR to apply the AI fixes." >> $GITHUB_STEP_SUMMARY
           else
