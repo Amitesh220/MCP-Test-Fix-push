@@ -72,25 +72,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           MCP_SERVER_URL: ${{ env.MCP_SERVER_URL }}
         run: node agent.js
-
-      - name: 🔄 Create Pull Request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-          if [[ "$BRANCH" == ai-fixes/* ]]; then
-            echo "Creating PR for $BRANCH..."
-
-            TITLE="🤖 AI Bug Fixes ($(date +'%Y-%m-%d'))"
-            BODY="The AI Agent detected and applied bug fixes automatically.\n\nPlease review these changes manually."
-
-            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(echo -e "$BODY")"
-
-            echo "## 🎉 Pull Request Created!" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## 🌟 No Bugs Found!" >> $GITHUB_STEP_SUMMARY
-          fi
+        
       - name: 🔄 Create Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
